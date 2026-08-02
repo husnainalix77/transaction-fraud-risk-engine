@@ -1,4 +1,4 @@
-# Transaction Fraud Risk Engine
+# 🕵️ Transaction Fraud Risk Engine
 
 End-to-end fraud detection pipeline built on real-world, imbalanced financial transaction data — combining SQL-based feature engineering, imbalance-aware machine learning, probability calibration, and model explainability to identify fraudulent transactions in a way that's both statistically rigorous and business-defensible.
 
@@ -100,29 +100,29 @@ transaction-fraud-risk-engine/
 
 ## Methodology
 
-### 1. Data Ingestion & Verification (Complete)
-Both CSVs were loaded into MySQL using a memory-safe, chunked pipeline (20,000 rows per chunk, with numeric type downcasting) rather than a single-pass load — necessary given the dataset's size relative to available memory. 
+### 1. Data Ingestion & Verification ✅ Complete
+Both CSVs were loaded into MySQL using a memory-safe, chunked pipeline (20,000 rows per chunk, with numeric type downcasting) rather than a single-pass load — necessary given the dataset's size relative to available memory.
 
 Every load was independently verified — not assumed — across four dimensions: row counts, column structure, null-value parity, and value-level spot-checks on randomly sampled rows. Full results are documented in [`docs/phase1_verification.md`](docs/phase1_verification.md); all checks passed with zero discrepancies.
 
 A notable finding from this phase: ~75% of transactions have no matching identity record. Rather than treating this as missing data to discard, it's carried forward as a deliberate feature (`has_identity_data`) in the next phase.
 
-### 2. SQL Feature Engineering *(in progress)*
+### 2. SQL Feature Engineering 🔄 In Progress
 Transaction and identity data are joined via `LEFT JOIN` on `TransactionID`. Behavioral features (e.g., rolling transaction counts per card, deviation from historical spend) are engineered directly in SQL using CTEs and window functions, rather than relying on pandas merges — reflecting how feature pipelines are built against production databases in practice.
 
-### 3. Statistical Validation *(planned)*
+### 3. Statistical Validation ⏳ Planned
 Chi-square and Kolmogorov-Smirnov tests are used to confirm which features show a statistically significant relationship with fraud, rather than relying on visual inspection alone.
 
-### 4. Time-Aware Validation *(planned)*
+### 4. Time-Aware Validation ⏳ Planned
 The dataset is split by `TransactionDT`, training on earlier transactions and validating on later, unseen-in-time transactions — avoiding the data leakage a random shuffle-split would introduce on time-ordered data.
 
-### 5. Imbalance-Aware Modeling & Calibration *(planned)*
+### 5. Imbalance-Aware Modeling & Calibration ⏳ Planned
 XGBoost is trained with class weighting and SMOTE, evaluated using precision, recall, F1, and PR-AUC (not accuracy, which is misleading under 3.5% class imbalance). Model probability outputs are checked for calibration (reliability diagrams, Platt/isotonic scaling) before any classification threshold is chosen — ensuring the final threshold decision rests on trustworthy probabilities.
 
-### 6. Explainability & Feature Importance *(planned)*
+### 6. Explainability & Feature Importance ⏳ Planned
 SHAP provides per-prediction fraud driver explanations; permutation importance provides an independent, model-wide feature ranking. Both are compared to build a defensible, non-black-box account of what the model is actually doing.
 
-### 7. Dashboard & Deployment *(planned)*
+### 7. Dashboard & Deployment ⏳ Planned
 A Streamlit dashboard exposes fraud risk scoring with per-prediction explanations, alongside overall model performance metrics.
 
 ---
