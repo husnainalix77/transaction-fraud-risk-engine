@@ -216,3 +216,8 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Project data (large / Kaggle-licensed, not for version control)
+data/raw/
+data/processed/
+*.csv
