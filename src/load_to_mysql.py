@@ -27,6 +27,7 @@ def load_csv_to_mysql(csv_path, table_name, chunk_size=20000):
     total_rows = 0
     
     for chunk in pd.read_csv(csv_path, chunksize=chunk_size):
+        chunk = downcast_dataframe(chunk)
         chunk.to_sql(
             table_name,
             engine,

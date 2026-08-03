@@ -1,162 +1,227 @@
+<div align="center">
+
 # 🕵️ Transaction Fraud Risk Engine
 
-End-to-end fraud detection pipeline built on real-world, imbalanced financial transaction data — combining SQL-based feature engineering, imbalance-aware machine learning, probability calibration, and model explainability to identify fraudulent transactions in a way that's both statistically rigorous and business-defensible.
+### An end-to-end fraud detection system — SQL feature engineering, imbalance-aware ML, calibration & explainability
 
-![Status](https://img.shields.io/badge/status-in%20progress-yellow)
-![Python](https://img.shields.io/badge/python-3.12-blue)
-![MySQL](https://img.shields.io/badge/database-MySQL-orange)
-![License](https://img.shields.io/badge/license-MIT-green)
+[![Python](https://img.shields.io/badge/Python-3.12-blue?style=for-the-badge&logo=python&logoColor=white)](https://python.org)
+[![MySQL](https://img.shields.io/badge/MySQL-8.0-orange?style=for-the-badge&logo=mysql&logoColor=white)](https://mysql.com)
+[![SQLAlchemy](https://img.shields.io/badge/SQLAlchemy-2.0-red?style=for-the-badge)](https://sqlalchemy.org)
+[![Pandas](https://img.shields.io/badge/Pandas-Latest-blue?style=for-the-badge&logo=pandas&logoColor=white)](https://pandas.pydata.org)
+[![Status](https://img.shields.io/badge/Status-In%20Progress-yellow?style=for-the-badge)]()
 
----
-
-## Problem Statement
-
-Card-not-present and online payment fraud costs the payments industry billions annually. A production fraud model has to solve a much harder problem than a typical classroom classifier:
-
-- **Fraud is rare** (~3.5% of transactions in this dataset) — a model that predicts "not fraud" every time is already ~96% accurate and completely useless.
-- **Errors are asymmetric** — missing a fraud case costs real money; flagging a legitimate customer costs trust. Accuracy alone can't capture this tradeoff.
-- **Fraud patterns shift over time** — a model must be validated the way it will actually be used: trained on the past, tested on the future, never the reverse.
-- **Decisions need to be explainable** — a black-box fraud score isn't enough for risk teams or regulators.
-
-This project builds a fraud detection pipeline that addresses all four constraints directly, rather than optimizing for a misleading accuracy number.
+</div>
 
 ---
 
-## Dataset
+## 📌 Problem Statement
 
-- **Source:** [IEEE-CIS Fraud Detection](https://www.kaggle.com/c/ieee-fraud-detection/data) (Kaggle, in partnership with the IEEE Computational Intelligence Society and Vesta Corporation)
-- **Files used:** `train_transaction.csv` (590,540 rows × 394 columns) and `train_identity.csv` (144,233 rows × 41 columns), joined on `TransactionID`
-- **Target:** `isFraud` (binary)
-- **Class balance:** ~3.5% fraud — genuinely imbalanced, not a toy split
-- **Time structure:** transactions span roughly one year, enabling realistic time-based validation
+Card-not-present and online payment fraud costs the payments industry **billions annually**. This project builds a fraud detection pipeline designed to handle the problem properly, not chase a misleading accuracy score:
 
-**To reproduce:**
-1. Create a free Kaggle account
-2. Accept the competition rules at the link above
-3. Download `train_transaction.csv` and `train_identity.csv`
-4. Place both files in `data/raw/` (not committed to this repo — see `.gitignore`)
+- 🎯 Fraud is rare (**~3.5%** of transactions) — a model predicting "not fraud" every time is already ~96% accurate and useless
+- ⏳ Fraud patterns shift over time — validation must respect chronological order, not random shuffling
+- 🔍 A production fraud model needs to be explainable, not a black box
 
 ---
 
-## Tech Stack
-
-| Layer | Tools |
-|---|---|
-| Data storage & engineering | MySQL, SQL (joins, CTEs, window functions) |
-| Data manipulation | Python, Pandas, NumPy |
-| Modeling | Scikit-learn, XGBoost, imbalanced-learn (SMOTE) |
-| Model evaluation & calibration | Scikit-learn (CalibratedClassifierCV), precision-recall analysis |
-| Explainability | SHAP, permutation importance |
-| Visualization | Matplotlib, Seaborn |
-| Dashboard | Streamlit |
-| Environment & workflow | Python venv, Git/GitHub, `.env`-based credential management |
-
----
-
-## Architecture
+## 🏗️ System Architecture (built so far)
 
 ```
-train_transaction.csv ─┐
-                        ├─► MySQL (raw_transactions, raw_identity)
-train_identity.csv ────┘              │
-                                       ▼
-                        SQL feature engineering (joins, CTEs, window functions)
-                                       │
-                                       ▼
-                    Time-aware train/validation split (no shuffling)
-                                       │
-                                       ▼
-              XGBoost + class weighting/SMOTE + probability calibration
-                                       │
-                                       ▼
-                  SHAP + permutation importance (explainability)
-                                       │
-                                       ▼
-                      Streamlit dashboard (fraud risk scoring UI)
+train_transaction.csv + train_identity.csv
+                │
+                ▼
+┌───────────────────────────┐
+│  MySQL (chunked ingestion) │  ← Memory-safe load, fully verified
+│ raw_transactions/identity   │
+└─────────────┬───────────────┘
+              │
+              ▼
+┌───────────────────────────┐
+│  SQL Feature Engineering    │  ← LEFT JOIN, CTEs, window functions
+│  (has_identity_data,         │
+│   card_txn_count_so_far,     │
+│   card_avg_amt_so_far,       │
+│   amt_deviation_ratio)       │
+└─────────────┬───────────────┘
+              │
+              ▼
+      data/processed/engineered_features.csv
 ```
 
 ---
 
-## Repository Structure
+## ⚙️ Tech Stack (used so far)
+
+| Layer | Technology | Purpose |
+|---|---|---|
+| Data storage | MySQL + SQLAlchemy | Structured storage, chunked ingestion |
+| Feature engineering | SQL (CTEs, window functions) | Behavioral aggregates computed at the database layer |
+| Processing | Pandas + NumPy | Chunked reading, type downcasting, final feature pull |
+| Environment | Python venv, `.env` credentials | Reproducible, secure local setup |
+
+---
+
+## ✅ Project Progress
+
+| Phase | Description | Status |
+|---|---|---|
+| 1 | MySQL Ingestion & Verification | ✅ Complete |
+| 2 | SQL Feature Engineering | ✅ Complete |
+| 3 | Statistical Validation (EDA) | ⏳ Not started |
+| 4 | Time-Aware Train/Validation Split | ⏳ Not started |
+| 5 | Imbalance-Aware Modeling & Calibration | ⏳ Not started |
+| 6 | Explainability & Permutation Importance | ⏳ Not started |
+| 7 | Streamlit Dashboard & Final Docs | ⏳ Not started |
+
+---
+
+## 🗄️ Phase 1 — MySQL Ingestion & Verification
+
+- ✅ Chunked loading pipeline (20,000 rows/chunk) — memory-safe on 8GB RAM
+- ✅ Numeric type downcasting to reduce memory footprint per chunk
+- ✅ Full independent verification — row counts, columns, nulls, and values, all proven, not assumed
+
+```
+raw_transactions : CSV 590,540 rows  ↔  MySQL 590,540 rows   MATCH
+raw_transactions : CSV 394 columns   ↔  MySQL 394 columns    MATCH
+raw_identity      : CSV 144,233 rows ↔  MySQL 144,233 rows   MATCH
+raw_identity      : CSV 41 columns   ↔  MySQL 41 columns     MATCH
+Null-count parity (sampled columns)  : MATCH
+Value-level spot-check (10 rows)     : MATCH
+```
+
+**Key finding:** ~75% of transactions have no matching identity record. This missingness was carried forward as a deliberate feature (`has_identity_data`) in Phase 2, rather than dropped.
+
+Full verification log: [`docs/phase1_verification.md`](docs/phase1_verification.md)
+
+---
+
+## 🔍 Phase 2 — SQL Feature Engineering
+
+Built entirely in SQL against the MySQL tables — no pandas merges — using CTEs to keep each stage of the logic readable and testable on its own.
+
+**What was built:**
+- **`LEFT JOIN`** on `TransactionID` — keeps all 590,540 transactions, whether or not identity data exists
+- **`has_identity_data`** — 1/0 flag converting the join's NULL pattern into a usable model feature
+- **`card_txn_count_so_far`** — rolling count of a card's prior transactions, computed via a window function partitioned by `card1` and ordered by `TransactionDT`
+- **`card_avg_amt_so_far`** — rolling average of a card's prior transaction amounts, same time-respecting window
+- **`amt_deviation_ratio`** — this transaction's amount divided by that card's historical average, surfacing "how unusual is this spend, for this specific card"
+
+**Critical design detail:** every rolling feature uses `ROWS BETWEEN UNBOUNDED PRECEDING AND 1 PRECEDING` — meaning each row's calculation only ever looks at *earlier* transactions for that card, never the current or future ones. This avoids leaking future information into features describing the past.
+
+**Verified output:**
+```
+Rows: 590,540 | Columns: 14
+card_txn_count_so_far  → 0 nulls (every transaction gets a count)
+card_avg_amt_so_far    → 13,553 nulls (each card's first transaction — no prior history)
+amt_deviation_ratio    → 13,553 nulls (same rows, exactly — confirms internal consistency)
+```
+
+**Example — card `13926`'s transaction history:**
+
+| TransactionAmt | card_txn_count_so_far | card_avg_amt_so_far | amt_deviation_ratio |
+|---|---|---|---|
+| 68.5 | 0 | NULL | NULL |
+| 150.0 | 1 | 68.5 | 2.19 |
+| 100.0 | 2 | 109.25 | 0.92 |
+| 500.0 | 9 | 125.06 | 4.00 |
+
+The last row shows exactly the kind of signal this feature is meant to surface: a transaction **4x** this card's historical average — a pattern a raw `TransactionAmt` column alone could never express.
+
+Feature engineering logic: [`sql/feature_engineering.sql`](sql/feature_engineering.sql)
+
+---
+
+## 📁 Repository Structure
 
 ```
 transaction-fraud-risk-engine/
+│
 ├── data/
-│   ├── raw/            # source CSVs (gitignored)
-│   └── processed/      # engineered feature tables
-├── sql/                 # feature engineering queries (CTEs, window functions)
-├── notebooks/           # EDA and inspection notebooks/scripts
-├── src/                 # reusable Python modules (ingestion, verification, modeling)
-├── app/                 # Streamlit dashboard
-├── docs/                # verification logs and written findings
-├── requirements.txt
-├── .env                 # local MySQL credentials (gitignored, not committed)
+│   ├── raw/                       # source CSVs (gitignored)
+│   └── processed/
+│       └── engineered_features.csv
+│
+├── sql/
+│   └── feature_engineering.sql    # join + CTEs + window functions
+│
+├── notebooks/
+│   ├── 01_inspect_data.py         # baseline CSV shape/inspection
+│   └── 02_verify_features.py      # engineered feature verification
+│
+├── src/
+│   ├── load_to_mysql.py           # chunked, memory-safe ingestion
+│   ├── verify_load.py             # row/column/null/value verification
+│   └── build_features.py          # runs feature_engineering.sql, saves CSV
+│
+├── docs/
+│   └── phase1_verification.md     # full ingestion verification log
+│
+├── .env                           # MySQL credentials (not in repo)
 ├── .gitignore
-├── README.md
-└── LICENSE
+├── requirements.txt
+└── README.md
 ```
 
 ---
 
-## Methodology
+## 🧠 Key Engineering Decisions
 
-### 1. Data Ingestion & Verification ✅ Complete
-Both CSVs were loaded into MySQL using a memory-safe, chunked pipeline (20,000 rows per chunk, with numeric type downcasting) rather than a single-pass load — necessary given the dataset's size relative to available memory.
+**Why chunked loading instead of `LOAD DATA INFILE`?**
+`LOAD DATA INFILE` is faster but requires hand-writing a 394-column
+`CREATE TABLE` statement and direct file-system access for MySQL.
+Chunked `to_sql()` lets pandas infer the schema automatically and
+keeps memory use safe on 8GB RAM — the right tradeoff for this
+one-time ingestion job.
 
-Every load was independently verified — not assumed — across four dimensions: row counts, column structure, null-value parity, and value-level spot-checks on randomly sampled rows. Full results are documented in [`docs/phase1_verification.md`](docs/phase1_verification.md); all checks passed with zero discrepancies.
+**Why verify the load instead of trusting it?**
+Chunked loading can silently cause type-inference mismatches or
+truncated values across chunk boundaries. Row counts alone don't
+catch this — full verification (columns, nulls, value spot-checks)
+does.
 
-A notable finding from this phase: ~75% of transactions have no matching identity record. Rather than treating this as missing data to discard, it's carried forward as a deliberate feature (`has_identity_data`) in the next phase.
+**Why SQL feature engineering over pandas-only?**
+Reflects how production feature pipelines are typically built
+against a live database, and forces genuine practice with joins,
+CTEs, and window functions at real scale.
 
-### 2. SQL Feature Engineering 🔄 In Progress
-Transaction and identity data are joined via `LEFT JOIN` on `TransactionID`. Behavioral features (e.g., rolling transaction counts per card, deviation from historical spend) are engineered directly in SQL using CTEs and window functions, rather than relying on pandas merges — reflecting how feature pipelines are built against production databases in practice.
+**Why time-respecting window functions specifically?**
+A card's "rolling average" must only include transactions that
+happened *before* the current one — otherwise the feature leaks
+future information into a signal meant to describe the past, which
+would silently inflate model performance later.
 
-### 3. Statistical Validation ⏳ Planned
-Chi-square and Kolmogorov-Smirnov tests are used to confirm which features show a statistically significant relationship with fraud, rather than relying on visual inspection alone.
-
-### 4. Time-Aware Validation ⏳ Planned
-The dataset is split by `TransactionDT`, training on earlier transactions and validating on later, unseen-in-time transactions — avoiding the data leakage a random shuffle-split would introduce on time-ordered data.
-
-### 5. Imbalance-Aware Modeling & Calibration ⏳ Planned
-XGBoost is trained with class weighting and SMOTE, evaluated using precision, recall, F1, and PR-AUC (not accuracy, which is misleading under 3.5% class imbalance). Model probability outputs are checked for calibration (reliability diagrams, Platt/isotonic scaling) before any classification threshold is chosen — ensuring the final threshold decision rests on trustworthy probabilities.
-
-### 6. Explainability & Feature Importance ⏳ Planned
-SHAP provides per-prediction fraud driver explanations; permutation importance provides an independent, model-wide feature ranking. Both are compared to build a defensible, non-black-box account of what the model is actually doing.
-
-### 7. Dashboard & Deployment ⏳ Planned
-A Streamlit dashboard exposes fraud risk scoring with per-prediction explanations, alongside overall model performance metrics.
-
----
-
-## Current Status
-
-- [x] **Phase 1** — MySQL ingestion, fully verified
-- [ ] **Phase 2** — SQL feature engineering
-- [ ] **Phase 3** — Statistical validation (EDA)
-- [ ] **Phase 4** — Time-aware train/validation split
-- [ ] **Phase 5** — Imbalance-aware modeling & calibration
-- [ ] **Phase 6** — Explainability & permutation importance
-- [ ] **Phase 7** — Streamlit dashboard & final documentation
+**Why split the average and ratio calculation into two separate CTEs?**
+An earlier version recalculated the same `AVG(...) OVER(...)` window
+function four times inside one query, which caused it to hang on the
+full 590K-row dataset. Computing the average once and reusing it via
+simple division fixed this — a real lesson in avoiding redundant
+computation in SQL.
 
 ---
 
-## Key Design Decisions
+## 👨‍💻 About the Author
 
-- **Why SQL feature engineering over pandas-only:** reflects how production feature pipelines are typically built against a live database, and forces genuine practice with joins, CTEs, and window functions at scale.
-- **Why time-based validation, not random split:** this dataset is time-ordered; a random split would leak future transaction patterns into training, producing an inflated, untrustworthy validation score.
-- **Why PR-AUC over accuracy/ROC-AUC as the primary metric:** with ~3.5% fraud prevalence, accuracy is trivially high and uninformative; PR-AUC better reflects performance on the minority class that actually matters here.
-- **Why calibration before threshold selection:** imbalance-correction techniques like SMOTE and class weighting distort raw model probabilities — calibration ensures the final decision threshold is chosen against numbers that genuinely reflect real-world fraud likelihood.
-
----
-
-## Author
+<div align="center">
 
 **Husnain Maroof**
-Mechatronics & Control Engineering, UET Lahore
-[GitHub](https://github.com/husnainalix77)
+
+3rd Year Mechatronics & Control Engineering
+University of Engineering & Technology (UET), Lahore
+
+*Open to remote opportunities in Data Science & ML Engineering*
+
+[![GitHub](https://img.shields.io/badge/GitHub-husnainalix77-black?style=for-the-badge&logo=github)](https://github.com/husnainalix77)
+[![LinkedIn](https://img.shields.io/badge/LinkedIn-Husnain%20Maroof-blue?style=for-the-badge&logo=linkedin)](https://linkedin.com/in/husnainalix77)
+
+</div>
 
 ---
 
-## License
-This project is licensed under the MIT License — see [LICENSE](LICENSE) for details.
+<div align="center">
 
-*Note: this repository is an independent learning/portfolio project and is not affiliated with Kaggle, IEEE-CIS, or Vesta Corporation.*
+⭐ **Star this repo to follow the build progress** ⭐
+
+*This is an independent learning/portfolio project — not affiliated with Kaggle, IEEE-CIS, or Vesta Corporation.*
+
+</div>
