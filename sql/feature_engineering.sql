@@ -7,6 +7,7 @@ WITH joined_data AS(
     ON t.TransactionID = i.TransactionID               
 ),
 
+
 identity_flagged AS(
     SELECT
     *,
