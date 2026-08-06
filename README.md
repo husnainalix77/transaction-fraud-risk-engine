@@ -2,12 +2,13 @@
 
 # 🕵️ Transaction Fraud Risk Engine
 
-### An end-to-end fraud detection system — SQL feature engineering, imbalance-aware ML, calibration & explainability
+### An end-to-end fraud detection system — SQL feature engineering, statistical validation, imbalance-aware ML, calibration & explainability
 
 [![Python](https://img.shields.io/badge/Python-3.12-blue?style=for-the-badge&logo=python&logoColor=white)](https://python.org)
 [![MySQL](https://img.shields.io/badge/MySQL-8.0-orange?style=for-the-badge&logo=mysql&logoColor=white)](https://mysql.com)
 [![SQLAlchemy](https://img.shields.io/badge/SQLAlchemy-2.0-red?style=for-the-badge)](https://sqlalchemy.org)
 [![Pandas](https://img.shields.io/badge/Pandas-Latest-blue?style=for-the-badge&logo=pandas&logoColor=white)](https://pandas.pydata.org)
+[![SciPy](https://img.shields.io/badge/SciPy-Statistical%20Testing-8CAAE6?style=for-the-badge&logo=scipy&logoColor=white)](https://scipy.org)
 [![Status](https://img.shields.io/badge/Status-In%20Progress-yellow?style=for-the-badge)]()
 
 </div>
@@ -18,9 +19,10 @@
 
 Card-not-present and online payment fraud costs the payments industry **billions annually**. This project builds a fraud detection pipeline designed to handle the problem properly, not chase a misleading accuracy score:
 
-- 🎯 Fraud is rare (**~3.5%** of transactions) — a model predicting "not fraud" every time is already ~96% accurate and useless
-- ⏳ Fraud patterns shift over time — validation must respect chronological order, not random shuffling
+- 🎯 Fraud is rare (**~3.5%** of transactions) — accuracy alone is a meaningless metric here
+- ⏳ Fraud patterns shift over time — validation must respect chronological order
 - 🔍 A production fraud model needs to be explainable, not a black box
+- 📊 Every feature used must be backed by statistical evidence, not assumption
 
 ---
 
@@ -45,7 +47,15 @@ train_transaction.csv + train_identity.csv
 └─────────────┬───────────────┘
               │
               ▼
-      data/processed/engineered_features.csv
+┌───────────────────────────┐
+│ Statistical Validation (EDA)│  ← Chi-square + KS-tests confirm
+│  7/7 features confirmed      │    every feature statistically
+│  statistically significant   │
+└─────────────┬───────────────┘
+              │
+              ▼
+        Ready for Phase 4:
+    Time-Aware Train/Validation Split
 ```
 
 ---
@@ -56,8 +66,10 @@ train_transaction.csv + train_identity.csv
 |---|---|---|
 | Data storage | MySQL + SQLAlchemy | Structured storage, chunked ingestion |
 | Feature engineering | SQL (CTEs, window functions) | Behavioral aggregates computed at the database layer |
-| Processing | Pandas + NumPy | Chunked reading, type downcasting, final feature pull |
-| Environment | Python venv, `.env` credentials | Reproducible, secure local setup |
+| Processing | Pandas + NumPy | Chunked reading, type downcasting, feature pull |
+| Statistical testing | SciPy (chi2_contingency, ks_2samp) | Formal significance testing of every candidate feature |
+| Visualization | Matplotlib + Seaborn | EDA bar charts, histograms, box plots |
+| Environment | Python venv, Jupyter notebooks, `.env` credentials | Reproducible, secure, iterative analysis setup |
 
 ---
 
@@ -67,7 +79,7 @@ train_transaction.csv + train_identity.csv
 |---|---|---|
 | 1 | MySQL Ingestion & Verification | ✅ Complete |
 | 2 | SQL Feature Engineering | ✅ Complete |
-| 3 | Statistical Validation (EDA) | ⏳ Not started |
+| 3 | Statistical Validation (EDA) | ✅ Complete |
 | 4 | Time-Aware Train/Validation Split | ⏳ Not started |
 | 5 | Imbalance-Aware Modeling & Calibration | ⏳ Not started |
 | 6 | Explainability & Permutation Importance | ⏳ Not started |
@@ -79,56 +91,65 @@ train_transaction.csv + train_identity.csv
 
 - ✅ Chunked loading pipeline (20,000 rows/chunk) — memory-safe on 8GB RAM
 - ✅ Numeric type downcasting to reduce memory footprint per chunk
-- ✅ Full independent verification — row counts, columns, nulls, and values, all proven, not assumed
+- ✅ Full independent verification — row counts, columns, nulls, and values, all proven
 
 ```
 raw_transactions : CSV 590,540 rows  ↔  MySQL 590,540 rows   MATCH
-raw_transactions : CSV 394 columns   ↔  MySQL 394 columns    MATCH
 raw_identity      : CSV 144,233 rows ↔  MySQL 144,233 rows   MATCH
-raw_identity      : CSV 41 columns   ↔  MySQL 41 columns     MATCH
 Null-count parity (sampled columns)  : MATCH
 Value-level spot-check (10 rows)     : MATCH
 ```
 
-**Key finding:** ~75% of transactions have no matching identity record. This missingness was carried forward as a deliberate feature (`has_identity_data`) in Phase 2, rather than dropped.
+**Key finding:** ~75% of transactions have no matching identity record — carried forward as a deliberate feature (`has_identity_data`) rather than dropped.
 
-Full verification log: [`docs/phase1_verification.md`](docs/phase1_verification.md)
+Full log: [`docs/phase1_verification.md`](docs/phase1_verification.md)
 
 ---
 
 ## 🔍 Phase 2 — SQL Feature Engineering
 
-Built entirely in SQL against the MySQL tables — no pandas merges — using CTEs to keep each stage of the logic readable and testable on its own.
+Built entirely in SQL using CTEs and window functions — no pandas merges.
 
-**What was built:**
-- **`LEFT JOIN`** on `TransactionID` — keeps all 590,540 transactions, whether or not identity data exists
-- **`has_identity_data`** — 1/0 flag converting the join's NULL pattern into a usable model feature
-- **`card_txn_count_so_far`** — rolling count of a card's prior transactions, computed via a window function partitioned by `card1` and ordered by `TransactionDT`
-- **`card_avg_amt_so_far`** — rolling average of a card's prior transaction amounts, same time-respecting window
-- **`amt_deviation_ratio`** — this transaction's amount divided by that card's historical average, surfacing "how unusual is this spend, for this specific card"
+**Features built:**
+- **`has_identity_data`** — 1/0 flag for identity match
+- **`card_txn_count_so_far`** — rolling, time-respecting count of a card's prior transactions
+- **`card_avg_amt_so_far`** — rolling, time-respecting average transaction amount per card
+- **`amt_deviation_ratio`** — this transaction's amount ÷ that card's historical average
 
-**Critical design detail:** every rolling feature uses `ROWS BETWEEN UNBOUNDED PRECEDING AND 1 PRECEDING` — meaning each row's calculation only ever looks at *earlier* transactions for that card, never the current or future ones. This avoids leaking future information into features describing the past.
+**Critical design detail:** every rolling feature uses `ROWS BETWEEN UNBOUNDED PRECEDING AND 1 PRECEDING` — only prior transactions are used, preventing future-data leakage.
 
-**Verified output:**
-```
-Rows: 590,540 | Columns: 14
-card_txn_count_so_far  → 0 nulls (every transaction gets a count)
-card_avg_amt_so_far    → 13,553 nulls (each card's first transaction — no prior history)
-amt_deviation_ratio    → 13,553 nulls (same rows, exactly — confirms internal consistency)
-```
+Logic: [`sql/feature_engineering.sql`](sql/feature_engineering.sql) · Log: [`docs/phase2_feature_engineering.md`](docs/phase2_feature_engineering.md)
 
-**Example — card `13926`'s transaction history:**
+---
 
-| TransactionAmt | card_txn_count_so_far | card_avg_amt_so_far | amt_deviation_ratio |
+## 📊 Phase 3 — Statistical Validation (EDA)
+
+Every raw and engineered feature was tested visually (bar charts, histograms, box plots) **and** statistically (chi-square for categorical, KS-test for numeric) before being trusted for modeling.
+
+### Categorical Features (Chi-Square Test)
+
+| Feature | Fraud Rate Range | Chi-Square Statistic | p-value | Result |
+|---|---|---|---|---|
+| ProductCD | 2.0% – 11.7% | 16,742.17 | ~0.0000 | ✅ Significant |
+| card4 (network) | 2.9% – 7.7% | 364.87 | ~8.97e-79 | ✅ Significant |
+| card6 (type) | 2.5% – 6.7% | 5,957.03 | ~0.0000 | ✅ Significant |
+| has_identity_data | 2.1% – 7.8% | 10,683.64 | ~0.0000 | ✅ Significant |
+
+### Numeric Features (Kolmogorov-Smirnov Test)
+
+| Feature | KS Statistic (D) | p-value | Result |
 |---|---|---|---|
-| 68.5 | 0 | NULL | NULL |
-| 150.0 | 1 | 68.5 | 2.19 |
-| 100.0 | 2 | 109.25 | 0.92 |
-| 500.0 | 9 | 125.06 | 4.00 |
+| TransactionAmt | 0.0756 | ~1.09e-99 | ✅ Significant |
+| amt_deviation_ratio | 0.0986 | ~3.22e-166 | ✅ Significant |
+| card_txn_count_so_far | 0.0587 | ~3.72e-60 | ✅ Significant |
 
-The last row shows exactly the kind of signal this feature is meant to surface: a transaction **4x** this card's historical average — a pattern a raw `TransactionAmt` column alone could never express.
+**Key findings:**
+- **All 7 features tested — raw and engineered — passed statistical significance testing.**
+- **`amt_deviation_ratio` (Phase 2 engineered feature) was the strongest individual predictor found**, outperforming raw `TransactionAmt` on both visual separation and KS statistic — directly validating the Phase 2 feature engineering effort.
+- **`has_identity_data` produced the most striking result**: a 3.7x higher fraud rate for transactions with identity data (7.8%) vs. without (2.1%).
+- **Volume checks mattered** — confirmed `ProductCD = W`'s low fraud rate still represents large absolute fraud volume (75% of all transactions), and exposed two `card6` categories with statistically meaningless 0% rates due to near-zero sample size.
 
-Feature engineering logic: [`sql/feature_engineering.sql`](sql/feature_engineering.sql)
+Full notebook: [`notebooks/03_eda_statistical_validation.ipynb`](notebooks/03_eda_statistical_validation.ipynb)
 
 ---
 
@@ -143,21 +164,23 @@ transaction-fraud-risk-engine/
 │       └── engineered_features.csv
 │
 ├── sql/
-│   └── feature_engineering.sql    # join + CTEs + window functions
+│   └── feature_engineering.sql
 │
 ├── notebooks/
-│   ├── 01_inspect_data.py         # baseline CSV shape/inspection
-│   └── 02_verify_features.py      # engineered feature verification
+│   ├── 01_inspect_data.py
+│   ├── 02_verify_features.py
+│   └── 03_eda_statistical_validation.ipynb
 │
 ├── src/
-│   ├── load_to_mysql.py           # chunked, memory-safe ingestion
-│   ├── verify_load.py             # row/column/null/value verification
-│   └── build_features.py          # runs feature_engineering.sql, saves CSV
+│   ├── load_to_mysql.py
+│   ├── verify_load.py
+│   └── build_features.py
 │
 ├── docs/
-│   └── phase1_verification.md     # full ingestion verification log
+│   ├── phase1_verification.md
+│   └── phase2_feature_engineering.md
 │
-├── .env                           # MySQL credentials (not in repo)
+├── .env
 ├── .gitignore
 ├── requirements.txt
 └── README.md
@@ -168,35 +191,27 @@ transaction-fraud-risk-engine/
 ## 🧠 Key Engineering Decisions
 
 **Why chunked loading instead of `LOAD DATA INFILE`?**
-`LOAD DATA INFILE` is faster but requires hand-writing a 394-column
-`CREATE TABLE` statement and direct file-system access for MySQL.
-Chunked `to_sql()` lets pandas infer the schema automatically and
-keeps memory use safe on 8GB RAM — the right tradeoff for this
-one-time ingestion job.
-
-**Why verify the load instead of trusting it?**
-Chunked loading can silently cause type-inference mismatches or
-truncated values across chunk boundaries. Row counts alone don't
-catch this — full verification (columns, nulls, value spot-checks)
-does.
+Avoided hand-writing a 394-column `CREATE TABLE` statement while keeping
+memory use safe on 8GB RAM.
 
 **Why SQL feature engineering over pandas-only?**
-Reflects how production feature pipelines are typically built
-against a live database, and forces genuine practice with joins,
-CTEs, and window functions at real scale.
+Reflects production feature pipelines built against a live database;
+forces genuine practice with joins, CTEs, and window functions at scale.
 
-**Why time-respecting window functions specifically?**
-A card's "rolling average" must only include transactions that
-happened *before* the current one — otherwise the feature leaks
-future information into a signal meant to describe the past, which
-would silently inflate model performance later.
+**Why time-respecting window functions?**
+Rolling features must only use transactions prior to the current one,
+preventing future-data leakage into a signal meant to describe the past.
 
-**Why split the average and ratio calculation into two separate CTEs?**
-An earlier version recalculated the same `AVG(...) OVER(...)` window
-function four times inside one query, which caused it to hang on the
-full 590K-row dataset. Computing the average once and reusing it via
-simple division fixed this — a real lesson in avoiding redundant
-computation in SQL.
+**Why statistically test every feature before modeling, not just visualize?**
+Visual patterns can be misleading — a striking chart can rest on a tiny
+sample size (as seen with `card6`'s 0%-fraud categories). Chi-square and
+KS-tests give an objective, quantified answer that accounts for sample
+size, rather than relying on subjective visual impression.
+
+**Why check transaction volume alongside fraud rate?**
+A low fraud rate on a high-volume category (`ProductCD = W`, 75% of all
+transactions) can represent more absolute fraud than a high rate on a
+small category — rate alone can be misleading without volume context.
 
 ---
 
