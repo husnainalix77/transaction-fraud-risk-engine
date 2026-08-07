@@ -82,7 +82,7 @@ train_transaction.csv + train_identity.csv
 | 2 | SQL Feature Engineering | ✅ Complete |
 | 3 | Statistical Validation (EDA) | ✅ Complete |
 | 4 | Time-Aware Train/Validation Split | ✅ Complete |
-| 5 | Imbalance-Aware Modeling & Calibration | ⏳ Not started |
+| 5 | Imbalance-Aware Modeling & Calibration | 🔄 In Progress |
 | 6 | Explainability & Permutation Importance | ⏳ Not started |
 | 7 | Streamlit Dashboard & Final Docs | ⏳ Not started |
 
@@ -151,6 +151,26 @@ Test min TransactionDT:  12,192,911   →  zero overlap, 11-second gap
 Notebook: [`notebooks/04_time_aware_split.ipynb`](notebooks/04_time_aware_split.ipynb) · Log: [`docs/phase4_time_aware_split.md`](docs/phase4_time_aware_split.md)
 
 ---
+
+## 🔄 Phase 5 — Imbalance-Aware Modeling & Calibration (In Progress)
+
+**Completed so far:**
+- Missing value imputation (fit on training data only): explicit `"Missing"` category for categorical gaps, `-1` sentinel for engineered numeric features (preserving "no card history yet" as a learnable signal).
+- Multicollinearity check: `TransactionAmt`/`amt_deviation_ratio` correlated at 0.81 (expected — one is derived from the other); both retained pending Phase 6 permutation importance review.
+- One-hot encoding with rare-category grouping: reduced `addr1` (329→69) and `P_emaildomain` (60→59) unique values before encoding, avoiding an unwieldy 410-column feature space — final set: **149 columns**.
+- **Baseline model proof:** default XGBoost scored **0.9648 accuracy** — *lower* than a naive "always predict not-fraud" baseline (**0.9656**) — concrete evidence that accuracy is the wrong metric under ~3.5% class imbalance.
+- **Imbalance handling comparison** (evaluated via PR-AUC, not accuracy):
+
+| Approach | PR-AUC |
+|---|---|
+| `scale_pos_weight` | **0.1907** ✅ chosen |
+| SMOTE | 0.1837 |
+
+`scale_pos_weight` outperformed SMOTE empirically on this dataset — a genuine, tested comparison rather than an assumption that the more complex technique (SMOTE) would automatically win.
+
+**Remaining:** probability calibration check, threshold selection with PR-curve justification, hyperparameter tuning, final model artifact.
+
+Progress log: [`docs/phase5_progress_so_far.md`](docs/phase5_progress_so_far.md)
 
 ## 📁 Repository Structure
 
