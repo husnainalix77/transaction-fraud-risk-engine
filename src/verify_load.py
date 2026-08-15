@@ -15,7 +15,27 @@ engine = create_engine(
     f"mysql+pymysql://{DB_USER}:{DB_PASSWORD}@{DB_HOST}/{DB_NAME}"
 )
 
-def check_row_counts(csv_path, table_name):
+def check_row_counts(csv_path, table_name)-> bool:
+    """
+    Compare the number of data rows in a CSV file with the
+    corresponding MySQL table.
+
+    The CSV header is excluded from the row count. The function
+    queries MySQL for the total number of rows and reports whether
+    the two counts match.
+
+    Parameters
+    ----------
+    csv_path : str
+        Path to the CSV file.
+    table_name : str
+        Name of the MySQL table to verify.
+
+    Returns
+    -------
+    bool
+        True if the CSV and MySQL row counts match, otherwise False.
+    """
     csv_row_count = sum(1 for _ in open(csv_path, encoding="utf-8")) - 1
 
     with engine.connect() as conn:
@@ -29,7 +49,26 @@ def check_row_counts(csv_path, table_name):
 
     return csv_row_count == mysql_row_count
 
-def check_columns(csv_path, table_name):
+def check_columns(csv_path, table_name)-> bool:
+    """
+    Compare the column names of a CSV file with those of a MySQL table.
+
+    The function identifies columns that are missing from MySQL and
+    columns that exist in MySQL but not in the CSV.
+
+    Parameters
+    ----------
+    csv_path : str
+        Path to the CSV file.
+    table_name : str
+        Name of the MySQL table to verify.
+
+    Returns
+    -------
+    bool
+        True if both sources contain the same set of columns,
+        otherwise False.
+    """
     csv_columns = list(pd.read_csv(csv_path, nrows=0).columns)
 
     with engine.connect() as conn:
@@ -52,7 +91,30 @@ def check_columns(csv_path, table_name):
 
     return not missing_in_mysql and not extra_in_mysql
 
-def check_null_counts(csv_path, table_name, sample_cols=None):
+def check_null_counts(csv_path, table_name, sample_cols=None)-> bool:
+    """
+    Compare NULL-value counts between selected CSV columns and
+    their corresponding MySQL table columns.
+
+    If sample_cols is provided, only those columns are checked.
+    Otherwise, all CSV columns are checked.
+
+    Parameters
+    ----------
+    csv_path : str
+        Path to the CSV file.
+    table_name : str
+        Name of the MySQL table to verify.
+    sample_cols : list of str, optional
+        Specific column names whose NULL counts should be compared.
+        If None, all columns are checked.
+
+    Returns
+    -------
+    bool
+        True if all checked columns have identical NULL counts in
+        the CSV and MySQL table, otherwise False.
+    """
     df = pd.read_csv(csv_path)
     csv_nulls = df.isnull().sum()
 
@@ -82,7 +144,31 @@ def check_null_counts(csv_path, table_name, sample_cols=None):
 
     return len(mismatches) == 0
 
-def spot_check_values(csv_path, table_name, id_column, sample_size=10):
+def spot_check_values(csv_path, table_name, id_column, sample_size=10)-> bool:
+    """
+    Compare randomly sampled rows between a CSV file and a MySQL table.
+
+    Rows are sampled from the CSV using the specified ID column.
+    Each sampled row is then retrieved from MySQL and its values are
+    compared column by column with the corresponding CSV row.
+
+    Parameters
+    ----------
+    csv_path : str
+        Path to the CSV file.
+    table_name : str
+        Name of the MySQL table to verify.
+    id_column : str
+        Column used to uniquely identify and retrieve sampled rows.
+    sample_size : int, default=10
+        Number of rows to randomly sample from the CSV.
+
+    Returns
+    -------
+    bool
+        True if all sampled rows are found in MySQL and their values
+        match the corresponding CSV rows, otherwise False.
+    """
     df = pd.read_csv(csv_path)
     sample_ids = df[id_column].sample(sample_size, random_state=42).tolist()
 
