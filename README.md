@@ -89,6 +89,8 @@ train_transaction.csv + train_identity.csv
 
 ---
 
+> 🤝 This project was built with AI assistance for debugging, code review, and concept explanation. See [AI_USAGE.md](docs/AI_USAGE.md) for a transparent breakdown of what was AI-assisted vs. independently designed and implemented.
+
 ## ✅ Project Progress
 
 | Phase | Description | Status |
@@ -194,12 +196,18 @@ streamlit run app/app.py
 transaction-fraud-risk-engine/
 │
 ├── app/
-│   ├── app.py                      # Streamlit dashboard
-│   └── assets/
-│       └── logo.png                # Custom-designed project logo
+│   ├── app.py                          # Streamlit dashboard
+│   ├── assets/
+│   │   ├── logo.png                    # Custom-designed project logo
+│   │   └── screenshots/                # Dashboard tab screenshots for README
+│   │       ├── tab1_overview.png
+│   │       ├── tab2_predictor.png
+│   │       ├── tab3_explainability.png
+│   │       └── tab4_journey.png
+│   └── screenshots/                    # (verify this matches your actual save location)
 │
 ├── data/
-│   ├── raw/
+│   ├── raw/                            # source CSVs (gitignored)
 │   └── processed/
 │       ├── engineered_features.csv
 │       ├── train_set.csv / test_set.csv
@@ -233,7 +241,8 @@ transaction-fraud-risk-engine/
 │   ├── phase4_time_aware_split.md
 │   ├── phase5_modeling_and_calibration.md
 │   ├── phase6_explainability.md
-│   └── phase7_dashboard.md
+│   ├── phase7_dashboard.md
+│   └── AI_USAGE.md
 │
 ├── .env
 ├── .gitignore
@@ -256,6 +265,26 @@ transaction-fraud-risk-engine/
 **Phase 7:** Relative path errors between notebook and Streamlit execution contexts, `plt.show()` not rendering in Streamlit (fixed with `st.pyplot()`), dead sidebar code (variable assignment instead of `st.metric()` calls), variable shadowing risk.
 
 ---
+
+### 🖼️ Dashboard Preview
+
+<div align="center">
+
+**Model Overview**
+![Model Overview](app/assets/screenshots/tab1_overview.png)
+
+**Fraud Risk Predictor — Live Prediction & SHAP Explanation**
+![Fraud Predictor](app/assets/screenshots/tab2_predictor.png)
+
+**Global Explainability**
+![Explainability](app/assets/screenshots/tab3_explainability.png)
+
+**Project Journey**
+![Project Journey](app/assets/screenshots/tab4_journey.png)
+
+</div>
+
+*Screenshots shown above — run locally to interact with the live threshold slider and SHAP explanations yourself.*
 
 ## 🧠 Key Engineering Decisions
 
