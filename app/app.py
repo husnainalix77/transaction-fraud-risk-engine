@@ -4,11 +4,16 @@ import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
 import joblib
-import sys
-import os
 from sklearn.metrics import confusion_matrix, precision_score, recall_score, f1_score
+from pathlib import Path
 
-FEATURE_COLUMNS = joblib.load("models/feature_columns_final.pkl")
+BASE_DIR = Path(__file__).resolve().parent.parent
+
+TEST_DATA_PATH = BASE_DIR / "data" / "processed" / "test_set_v2.csv"
+
+FEATURE_COLUMNS = joblib.load(
+    BASE_DIR / "models" / "feature_columns_final.pkl"
+)
 
 # 1. Page Configuration
 st.set_page_config(
@@ -166,7 +171,7 @@ st.markdown("""
 
 @st.cache_data
 def load_raw_test_data():
-    test_df = pd.read_csv("data/processed/test_set_v2.csv")
+    test_df = pd.read_csv(TEST_DATA_PATH)
     return test_df
 
 
@@ -189,7 +194,9 @@ def preprocessing(test_df):
     cols = ["addr1", "P_emaildomain"]
     threshold_map = {"addr1": 55, "P_emaildomain": 30}
 
-    train_df_ref = pd.read_csv("data/processed/train_set_v2.csv")
+    train_df_ref = pd.read_csv(
+    BASE_DIR / "data" / "processed" / "train_set_v2.csv"
+)
     for col in categorical_cols:
         train_df_ref[col] = train_df_ref[col].fillna("Missing")
 
@@ -217,8 +224,14 @@ def load_data():
 
 @st.cache_resource
 def load_models():
-    model = joblib.load("models/fraud_model_final.pkl")
-    decision_threshold = joblib.load("models/decision_threshold.pkl")
+    model = joblib.load(
+        BASE_DIR / "models" / "fraud_model_final.pkl"
+    )
+
+    decision_threshold = joblib.load(
+        BASE_DIR / "models" / "decision_threshold.pkl"
+    )
+
     return model, decision_threshold
 
 
@@ -238,7 +251,10 @@ threshold = st.sidebar.slider(
 )
 st.sidebar.markdown("---")
 with st.sidebar:
-    st.image("app/assets/logo.png", width=100)
+    st.image(
+        BASE_DIR / "app" / "assets" / "logo.png",
+        width=100
+    )
     st.markdown("### 📊 About This Model")
     st.metric(label="Fraud Rate", value="3.5%")
     st.metric(label="PR-AUC", value="0.2857", delta="+50% vs baseline")
