@@ -1,7 +1,9 @@
 # Phase 4 Log — Time-Aware Train/Validation/Test Split (Corrected)
 
 **Original date:** 2026-08-05
+
 **Correction date:** 2026-08-16
+
 **Purpose:** Split the engineered feature dataset into training, validation, and test sets using strict chronological cutoffs, avoiding data leakage — and, following a mid-project methodological review, correcting an original 2-way split into a proper 3-way split.
 
 ## Why This Phase Was Revisited

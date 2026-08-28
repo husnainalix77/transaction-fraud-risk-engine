@@ -1,7 +1,9 @@
 # Phase 6 Log — Explainability & Permutation Importance (Updated for Corrected Model)
 
 **Original date:** 2026-08-10
+
 **Updated date:** 2026-08-17 (reflects the Phase 4/5 methodology correction)
+
 **Purpose:** Explain the corrected Phase 5 final model's predictions using SHAP and permutation importance, confirming the model's behavior is interpretable and consistent with prior project findings.
 
 ## What Changed From the Original Version

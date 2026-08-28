@@ -1,7 +1,9 @@
 # Phase 5 Log — Imbalance-Aware Modeling & Calibration (Corrected)
 
 **Original date:** 2026-08-06 to 2026-08-09
+
 **Correction date:** 2026-08-16 to 2026-08-17
+
 **Purpose:** Build a fraud classifier with calibrated probability outputs and a deliberately justified decision threshold, correctly separating model development from final evaluation.
 
 ## ⚠️ The Methodological Issue Found

@@ -1,7 +1,9 @@
 # Phase 7 Log — Streamlit Dashboard (Updated for Corrected Model)
 
 **Original date:** 2026-08-14
+
 **Updated date:** 2026-08-17 (reflects the Phase 4/5 methodology correction)
+
 **Purpose:** Deploy the corrected Phase 5 final model as an interactive, explainable, honestly-reported dashboard.
 
 ## What Changed From the Original Version
