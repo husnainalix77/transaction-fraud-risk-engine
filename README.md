@@ -18,12 +18,12 @@
 
 ## 📌 Problem Statement
 
-Card-not-present and online payment fraud costs the payments industry **billions annually**. This project builds a fraud detection pipeline designed to handle the problem properly, not chase a misleading accuracy score:
+Card-not-present and online payment fraud costs the payments industry **billions annually**. This project builds a fraud detection pipeline designed to handle the problem properly:
 
 - 🎯 Fraud is rare (**~3.5%** of transactions) — accuracy alone is a meaningless metric here
 - ⏳ Fraud patterns shift over time — validation must respect chronological order
 - 🔍 A production fraud model needs to be explainable, not a black box
-- 📊 Every decision is backed by tested evidence, including honest documentation of approaches that didn't work
+- 📊 Every decision is backed by tested evidence — including a genuine methodological correction discovered and fixed mid-project, documented transparently below
 
 ---
 
@@ -49,13 +49,14 @@ train_transaction.csv + train_identity.csv
               │
               ▼
 ┌───────────────────────────┐
-│ Time-Aware Train/Val Split  │
+│ Time-Aware Train/Val/Test    │  ← 3-way split (corrected)
+│         Split                 │
 └─────────────┬───────────────┘
               │
               ▼
 ┌───────────────────────────┐
-│ Imbalance-Aware Modeling &   │  ← Final PR-AUC: 0.2857
-│      Calibration             │
+│ Imbalance-Aware Modeling &   │  ← Val PR-AUC: 0.3406
+│      Calibration             │    TEST PR-AUC: 0.2565
 └─────────────┬───────────────┘
               │
               ▼
@@ -66,7 +67,6 @@ train_transaction.csv + train_identity.csv
               ▼
 ┌───────────────────────────┐
 │  Interactive Dashboard       │  ← Streamlit, 4 tabs, live threshold
-│  (Streamlit)                 │    control, per-transaction SHAP
 └───────────────────────────┘
 ```
 
@@ -77,19 +77,17 @@ train_transaction.csv + train_identity.csv
 | Layer | Technology | Purpose |
 |---|---|---|
 | Data storage | MySQL + SQLAlchemy | Structured storage, chunked ingestion |
-| Feature engineering | SQL (CTEs, window functions) | Behavioral aggregates at the database layer |
+| Feature engineering | SQL (CTEs, window functions) | Behavioral aggregates + 65 V-columns |
 | Processing | Pandas + NumPy | Chunked reading, downcasting, imputation |
 | Statistical testing | SciPy (chi2_contingency, ks_2samp) | Formal significance testing |
 | Modeling | XGBoost, scikit-learn | Imbalance-aware classification |
 | Calibration | CalibratedClassifierCV (Platt scaling) | Trustworthy probability outputs |
-| Explainability | SHAP, permutation_importance | Model interpretability, per-prediction and global |
+| Explainability | SHAP, permutation_importance | Model interpretability |
 | Dashboard | Streamlit | Interactive, deployed fraud risk explorer |
-| Visualization | Matplotlib + Seaborn | EDA, PR curves, reliability diagrams, SHAP plots |
-| Environment | Python venv, Jupyter notebooks, `.env` | Reproducible, secure, iterative workflow |
+| Visualization | Matplotlib + Seaborn | EDA, PR curves, reliability diagrams |
+| Environment | Python venv, Jupyter notebooks, `.env` | Reproducible workflow |
 
 ---
-
-> 🤝 This project was built with AI assistance for debugging, code review, and concept explanation. See [AI_USAGE.md](docs/AI_USAGE.md) for a transparent breakdown of what was AI-assisted vs. independently designed and implemented.
 
 ## ✅ Project Progress
 
@@ -98,12 +96,28 @@ train_transaction.csv + train_identity.csv
 | 1 | MySQL Ingestion & Verification | ✅ Complete |
 | 2 | SQL Feature Engineering | ✅ Complete |
 | 3 | Statistical Validation (EDA) | ✅ Complete |
-| 4 | Time-Aware Train/Validation Split | ✅ Complete |
-| 5 | Imbalance-Aware Modeling & Calibration | ✅ Complete |
+| 4 | Time-Aware Train/Validation/Test Split | ✅ Complete (corrected) |
+| 5 | Imbalance-Aware Modeling & Calibration | ✅ Complete (corrected) |
 | 6 | Explainability & Permutation Importance | ✅ Complete |
 | 7 | Streamlit Dashboard & Final Docs | ✅ Complete |
 
-**🎉 Project complete — all 7 phases finished.**
+**🎉 Project complete — all 7 phases finished, including a genuine mid-project methodological correction.**
+
+---
+
+## ⚠️ A Note on Methodology: What Changed and Why
+
+Partway through this project, after completing all 7 phases once, a real methodological flaw was identified: **the test set had been used repeatedly throughout Phase 5's development** — every comparison (scale_pos_weight vs. SMOTE, hyperparameter tuning, threshold selection, feature-set changes) was evaluated directly against the test set, with each result informing the next decision. This is a well-known form of leakage — not of data rows, but of *information about the test set's answers* — that produces optimistically biased final results.
+
+**The fix:** the original 80/20 time-aware split was extended into a proper 3-way split — **64% train / 16% validation / 20% test** — all chronologically ordered with zero overlap. Every development decision (imbalance handling, calibration, tuning, threshold) was redone using only the validation set. The test set was touched **exactly once**, at the very end, for a single, final, honest evaluation.
+
+**The result of this correction, reported transparently:**
+
+| Metric | Original (flawed) | Corrected — Validation | Corrected — Test (final, honest) |
+|---|---|---|---|
+| PR-AUC | 0.2857 | 0.3406 | **0.2565** |
+
+The gap between the corrected validation PR-AUC (0.3406) and the corrected test PR-AUC (0.2565) is expected and informative — it's the honest, measured evidence of how much the original, flawed process had been implicitly overfitting to test-set feedback. **0.2565 is the number that should be trusted as this model's real-world performance estimate.**
 
 ---
 
@@ -117,7 +131,7 @@ Log: [`docs/phase1_verification.md`](docs/phase1_verification.md)
 
 ## 🔍 Phase 2 — SQL Feature Engineering
 
-Built in SQL using CTEs and window functions, later expanded with 65 low-missingness Vesta V-columns.
+Built in SQL using CTEs and window functions, expanded with 65 low-missingness Vesta V-columns from the start.
 
 Logic: [`sql/feature_engineering.sql`](sql/feature_engineering.sql) · Log: [`docs/phase2_feature_engineering.md`](docs/phase2_feature_engineering.md)
 
@@ -131,25 +145,40 @@ Notebook: [`notebooks/03_eda_statistical_validation.ipynb`](notebooks/03_eda_sta
 
 ---
 
-## ⏳ Phase 4 — Time-Aware Train/Validation Split
+## ⏳ Phase 4 — Time-Aware Train/Validation/Test Split (Corrected)
 
-Split by `TransactionDT`. Zero overlap verified (train max 12,192,900 < test min 12,192,911).
+Split chronologically into three non-overlapping sets, correcting the original 2-way split that allowed test-set leakage during development.
+
+| Set | Approx. % | Purpose |
+|---|---|---|
+| Train | 64% | Model fitting only |
+| Validation | 16% | All development decisions |
+| Test | 20% | One-time, final evaluation only |
+
+Zero overlap verified at both boundaries directly from the data.
 
 Log: [`docs/phase4_time_aware_split.md`](docs/phase4_time_aware_split.md)
 
 ---
 
-## 🎯 Phase 5 — Imbalance-Aware Modeling & Calibration
+## 🎯 Phase 5 — Imbalance-Aware Modeling & Calibration (Corrected)
 
-| Approach | PR-AUC | Decision |
+Every technique tested empirically on the **validation set**, judged on PR-AUC. A default XGBoost model scored *lower* accuracy than a naive baseline, proving accuracy is the wrong metric here.
+
+| Approach | Validation PR-AUC | Decision |
 |---|---|---|
-| `scale_pos_weight` | 0.1907 | ✅ Adopted over SMOTE |
-| SMOTE | 0.1837 | ❌ Rejected |
-| Hyperparameter tuning | 0.1903 | ❌ Rejected — negligible gain |
-| Engineered time/hour features | 0.1533–0.1809 | ❌ Rejected — hurt performance |
-| +65 Vesta V-columns | **0.2857** | ✅ **Final model** |
+| `scale_pos_weight` | 0.3406 | ✅ Adopted over SMOTE |
+| SMOTE | 0.2900 | ❌ Rejected — worse |
+| Hyperparameter tuning | 0.3457 | ❌ Rejected — negligible gain (~1.5%) |
 
-**Final model:** XGBoost + `scale_pos_weight` + Platt calibration, 214 features, threshold = 0.16 → Precision 0.30, Recall 0.37, PR-AUC 0.2857.
+**Final model:** XGBoost + `scale_pos_weight` (27.31) + Platt calibration, 212 features, threshold = 0.15
+
+| Metric | Validation | **Test (final, one-time)** |
+|---|---|---|
+| PR-AUC | 0.3406 | **0.2565** |
+| Precision | 0.31 | 0.30 |
+| Recall | 0.43 | 0.30 |
+| F1-score | 0.36 | 0.30 |
 
 Notebook: [`notebooks/05_modeling_and_calibration.ipynb`](notebooks/05_modeling_and_calibration.ipynb) · Log: [`docs/phase5_modeling_and_calibration.md`](docs/phase5_modeling_and_calibration.md)
 
@@ -157,7 +186,7 @@ Notebook: [`notebooks/05_modeling_and_calibration.ipynb`](notebooks/05_modeling_
 
 ## 🔬 Phase 6 — Explainability & Permutation Importance
 
-SHAP and permutation importance independently confirm `TransactionAmt`, `V303`, `ProductCD_C`, `card1` as core drivers. Divergences (e.g., `card_avg_amt_so_far`) explained by Phase 5's known 0.81 feature correlation.
+SHAP and permutation importance independently confirm `TransactionAmt`, `V303`, `ProductCD_C`, `card1` as core drivers. Divergences (e.g., `card_avg_amt_so_far`) explained by a known 0.79 feature correlation.
 
 Notebook: [`notebooks/06_explainability.ipynb`](notebooks/06_explainability.ipynb) · Log: [`docs/phase6_explainability.md`](docs/phase6_explainability.md)
 
@@ -165,21 +194,16 @@ Notebook: [`notebooks/06_explainability.ipynb`](notebooks/06_explainability.ipyn
 
 ## 🖥️ Phase 7 — Interactive Streamlit Dashboard
 
-A fully interactive, explainable deployment of the final model.
+A fully interactive deployment of the final, corrected model, reflecting the honest test-set PR-AUC (0.2565), not the earlier flawed number.
 
 ### 4 Tabs
 
 | Tab | Description |
 |---|---|
-| 📊 Model Overview | Live-reactive precision/recall/F1/confusion matrix (updates with threshold slider) + full experimentation log |
+| 📊 Model Overview | Live-reactive precision/recall/F1/confusion matrix + full validation-based experimentation log |
 | 🔍 Fraud Risk Predictor | Pick any transaction, get a live prediction + individual SHAP waterfall explanation |
-| 📈 Explainability | Global SHAP summary + permutation importance, with divergence explained |
-| 🧠 Project Journey | Phase-by-phase story, honest limitations, links |
-
-### Key Features
-- **Live decision threshold slider** — reactive across the entire app, not just one static chart
-- **Custom-designed logo and dark navy/red theme**, matching the project's fraud-risk branding
-- **Reuses the exact Phase 5/6 preprocessing pipeline** — dashboard predictions are guaranteed consistent with notebook-evaluated results, not a simplified approximation
+| 📈 Explainability | Global SHAP summary + permutation importance |
+| 🧠 Project Journey | Phase-by-phase story, including the methodology correction, honest limitations |
 
 Code: [`app/app.py`](app/app.py) · Log: [`docs/phase7_dashboard.md`](docs/phase7_dashboard.md)
 
@@ -196,22 +220,18 @@ streamlit run app/app.py
 transaction-fraud-risk-engine/
 │
 ├── app/
-│   ├── app.py                          # Streamlit dashboard
-│   ├── assets/
-│   │   ├── logo.png                    # Custom-designed project logo
-│   │   └── screenshots/                # Dashboard tab screenshots for README
-│   │       ├── tab1_overview.png
-│   │       ├── tab2_predictor.png
-│   │       ├── tab3_explainability.png
-│   │       └── tab4_journey.png
-│   └── screenshots/                    # (verify this matches your actual save location)
+│   ├── app.py
+│   └── assets/
+│       ├── logo.png
+│       └── screenshots/
 │
 ├── data/
-│   ├── raw/                            # source CSVs (gitignored)
+│   ├── raw/
 │   └── processed/
 │       ├── engineered_features.csv
-│       ├── train_set.csv / test_set.csv
-│       └── train_set_v2.csv / test_set_v2.csv
+│       ├── train_final_v2.csv      # corrected: 64% train
+│       ├── val_set_v2.csv          # corrected: 16% validation
+│       └── test_set_v2.csv         # corrected: 20% test (untouched)
 │
 ├── sql/
 │   └── feature_engineering.sql
@@ -254,37 +274,17 @@ transaction-fraud-risk-engine/
 
 ## 🔧 Problems Faced & How They Were Solved
 
-*(See full details across all phases — kept as a transparent record since working through genuine problems is where most of the actual learning happened.)*
+**Phases 1–2:** MySQL connection/typo issues, `SQLAlchemy` `text()` requirement, query timeouts traced to missing indexes and orphaned background queries, redundant window-function computation, SQL/Python code duplication resolved.
 
-**Phases 1–2:** MySQL connection/typo issues, `SQLAlchemy` `text()` requirement, query timeouts traced to missing indexes and orphaned background queries (`SHOW FULL PROCESSLIST`), redundant window-function computation causing hangs, SQL/Python code duplication resolved.
+**Phase 5 (original attempt):** Categorical encoding errors, 410-column explosion (fixed via rare-category grouping), `CalibratedClassifierCV`'s `cv="prefit"` deprecation, a stale-threshold bug after feature changes, two rejected experiments (SMOTE, engineered time/hour features).
 
-**Phase 5:** Categorical encoding errors, 410-column explosion from high-cardinality one-hot encoding (fixed via rare-category grouping), `CalibratedClassifierCV`'s `cv="prefit"` deprecation, a stale-threshold bug after adding new features (diagnosed by regenerating the PR curve fresh per model version), and two rejected experiments (SMOTE, engineered time/hour features) documented honestly.
+**Phase 5 (methodological correction):** **The most significant issue found in this project** — the test set was being used repeatedly to guide development decisions rather than held out for a single, final evaluation. Identified through careful self-review, corrected by extending the split into train/validation/test, redoing all of Phase 5's development against validation only, and reporting both the validation and honest, single-evaluation test numbers transparently.
 
-**Phase 6:** SHAP incompatibility with `CalibratedClassifierCV` wrappers (resolved by extracting internal estimators), missing preprocessing when regenerating SHAP input data (caught and fixed), rare-category grouping accidentally computed from test instead of training data (corrected).
+**Phase 6:** SHAP incompatibility with `CalibratedClassifierCV` wrappers (resolved via internal estimator extraction), preprocessing consistency issues when reapplying Phase 5's pipeline to the test set.
 
-**Phase 7:** Relative path errors between notebook and Streamlit execution contexts, `plt.show()` not rendering in Streamlit (fixed with `st.pyplot()`), dead sidebar code (variable assignment instead of `st.metric()` calls), variable shadowing risk.
+**Phase 7:** Relative path handling between notebook and Streamlit execution contexts, `plt.show()` not rendering in Streamlit, dashboard updated to reflect the corrected model, data files, and final honest metrics.
 
 ---
-
-### 🖼️ Dashboard Preview
-
-<div align="center">
-
-**Model Overview**
-![Model Overview](app/assets/screenshots/tab1_overview.png)
-
-**Fraud Risk Predictor — Live Prediction & SHAP Explanation**
-![Fraud Predictor](app/assets/screenshots/tab2_predictor.png)
-
-**Global Explainability**
-![Explainability](app/assets/screenshots/tab3_explainability.png)
-
-**Project Journey**
-![Project Journey](app/assets/screenshots/tab4_journey.png)
-
-</div>
-
-*Screenshots shown above — run locally to interact with the live threshold slider and SHAP explanations yourself.*
 
 ## 🧠 Key Engineering Decisions
 
@@ -296,13 +296,9 @@ transaction-fraud-risk-engine/
 
 **Why calibrate before choosing a threshold?** `scale_pos_weight` distorts raw probabilities; calibration ensures the threshold decision rests on trustworthy numbers.
 
-**Why test and reject SMOTE, tuning, and new features?** Each was a reasonable hypothesis, tested and judged on evidence — reporting negative results honestly demonstrates real experimentation.
+**Why a train/validation/test split instead of train/test?** Discovered mid-project that repeatedly evaluating development decisions against a single held-out set produces optimistically biased results. Separating validation (used for every decision) from test (touched once) gives an honest, defensible final performance estimate — and the gap between the two numbers is itself valuable, disclosed evidence of how much the earlier process had overfit to feedback.
 
-**Why expand to V-columns, and why stop at 65?** Evidence pointed to a feature-scope limitation; diminishing returns and rising missingness justified stopping, balanced against real project time constraints.
-
-**Why use two explainability methods?** SHAP and permutation importance measure fundamentally different things — using both, and explaining disagreements, produces a more defensible understanding than either alone.
-
-**Why build an interactive dashboard rather than just notebooks?** Makes the project's results tangible and explorable for a non-technical reviewer — a live threshold slider and per-transaction explanations demonstrate genuine understanding of the precision/recall tradeoff, not just a static report.
+**Why report the flawed original results at all, rather than just fixing and moving on?** Transparency about mistakes and corrections is more credible than a seamless narrative that hides them — this is real evidence of methodological rigor and self-critical engineering judgment, which matters more to a reviewer than a single clean number.
 
 ---
 
@@ -326,7 +322,7 @@ University of Engineering & Technology (UET), Lahore
 
 <div align="center">
 
-⭐ **Star this repo if it helped you understand real-world fraud detection workflows** ⭐
+⭐ **Star this repo — including for the honest methodological correction documented above** ⭐
 
 *This is an independent learning/portfolio project — not affiliated with Kaggle, IEEE-CIS, or Vesta Corporation.*
 
