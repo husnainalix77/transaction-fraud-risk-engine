@@ -1,35 +1,37 @@
-# Phase 7 Log — Streamlit Dashboard
+# Phase 7 Log — Streamlit Dashboard (Updated for Corrected Model)
 
-**Date:** 2026-08-14
-**Purpose:** Deploy the Phase 5 final model as an interactive, explainable dashboard — making the project's results tangible and explorable, not just documented in notebooks.
+**Original date:** 2026-08-14
+**Updated date:** 2026-08-17 (reflects the Phase 4/5 methodology correction)
+**Purpose:** Deploy the corrected Phase 5 final model as an interactive, explainable, honestly-reported dashboard.
 
-## Structure
+## What Changed From the Original Version
 
-**Page Configuration:** Custom dark navy/red theme via injected CSS, branded header with custom-designed logo, hidden default Streamlit chrome for a polished, non-generic appearance.
+- **Data source path:** category-grouping reference now loads `train_final_v2.csv` (the corrected training file) instead of the original `train_set_v2.csv`.
+- **Model artifacts:** all `.pkl` files reference the corrected model (212 features, threshold 0.15).
+- **All displayed metrics:** updated to show the honest, single-evaluation **test** PR-AUC (0.2565) as the primary headline number, rather than the original flawed 0.2857.
+- **Experimentation log table (Tab 1):** restructured to show validation PR-AUC for every development decision, with the final row explicitly labeled as the one-time test-set result — making the validation/test distinction visible to anyone using the dashboard, not just documented in the README.
+- **Project Journey tab (Tab 4):** Phase 4 and Phase 5 descriptions rewritten to explain the 3-way split and the methodology correction directly within the dashboard's narrative.
+- **Correlation figure:** updated from 0.81 to 0.79 in the Explainability tab's write-up.
 
-**Data & Model Loading:** Cached loading of the final calibrated model, feature columns, and decision threshold (`@st.cache_resource`); cached loading and preprocessing of the test set, exactly replicating Phase 5's pipeline (imputation, rare-category grouping fit on training data, one-hot encoding, column reindexing) to guarantee consistency with the deployed model.
+## Structure (Unchanged)
 
-**Sidebar:** Interactive decision threshold slider (live-reactive across the app), full "About This Model" stats block (PR-AUC, precision, recall, features used, test set size, fraud rate), custom logo, author/GitHub links.
+**Page Configuration:** Custom dark navy/red theme, branded header with custom logo, hidden default Streamlit chrome.
+
+**Data & Model Loading:** Cached loading, reusing the corrected Phase 5 preprocessing pipeline exactly.
+
+**Sidebar:** Live decision threshold slider, "About This Model" stats block now showing test-set PR-AUC as the primary figure.
 
 **Tabs:**
-1. **Model Overview** — live-recalculating precision/recall/F1 and confusion matrix as the threshold slider moves, plus the full 6-approach experimentation log (baseline, scale_pos_weight, SMOTE, tuning, failed features, V-columns).
-2. **Fraud Risk Predictor** — pick any test-set transaction by row index, view its raw details, get a live prediction at the current threshold, and see a live single-transaction SHAP waterfall explanation.
-3. **Explainability** — cached global SHAP summary plot and permutation importance chart (2,000-row sample), with written explanation of the SHAP-vs-permutation ranking discrepancies tied directly to Phase 5's multicollinearity finding.
-4. **Project Journey** — phase-by-phase expandable summary, honest limitations section, links to the full repository.
+1. **Model Overview** — live-reactive metrics + confusion matrix + the full validation-based experimentation log with the final test-set result clearly separated.
+2. **Fraud Risk Predictor** — transaction picker, live prediction, live SHAP waterfall.
+3. **Explainability** — cached global SHAP + permutation importance, updated correlation figure.
+4. **Project Journey** — updated phase narrative including the methodology correction story, honest limitations updated to reference the corrected test PR-AUC.
 
-## Key Design Decisions
+## Key Design Decision (New)
 
-- **Threshold slider is interactive across the whole app**, not just Tab 1 — Tab 2's individual predictions also respect the current slider value, making the precision/recall tradeoff genuinely explorable rather than a static, pre-baked number.
-- **Two-tier caching strategy:** cheap, threshold-dependent calculations (predictions, confusion matrix) recompute live on every interaction; expensive, threshold-independent calculations (SHAP, permutation importance) are cached once via `@st.cache_data`/`@st.cache_resource`.
-- **Single-row SHAP (Tab 2) computed live**, since it's fast enough; full-dataset SHAP (Tab 3) is sampled and cached, since it's not.
-- **Preprocessing logic is fully reused from Phase 5/6**, not reimplemented — the dashboard's predictions are guaranteed consistent with the notebook-evaluated model, not a simplified approximation.
-
-## Issues Encountered & Resolved
-
-- **Relative path errors** (`FileNotFoundError`): notebook-style `../` paths don't apply to Streamlit, which runs from the invocation directory (project root), not the script's own folder. Fixed by removing `../` prefixes throughout.
-- **`plt.show()` silently does nothing in Streamlit**: matplotlib figures require `st.pyplot(plt.gcf())` to actually render on the page.
-- **Sidebar stats initially failed to render**: an early draft assigned Python variables (`label=..., value=...`) instead of actually calling `st.metric(...)` — valid syntax, but functionally dead code.
-- **Variable shadowing risk**: a local `labels = ["Non-fraud", "Fraud"]` variable inside Tab 1 shadowed an earlier `labels` variable holding the actual `isFraud` Series — renamed to avoid ambiguity.
+**Why show the test PR-AUC prominently, not the higher validation number:** the dashboard is meant to represent the model's honest, defensible real-world performance to anyone reviewing it — using the validation number (which was involved in development decisions) would repeat the same methodological issue the project corrected. The test PR-AUC (0.2565), evaluated exactly once, is the number a viewer should trust.
 
 ## Conclusion
-Phase 7 is complete. The dashboard is a fully interactive, explainable deployment of the final model, reusing every phase's work (SQL features, statistical validation, the time-aware split, the calibrated model, and both explainability methods) in one cohesive, professional interface — closing out the full 7-phase project.
+Phase 7 (updated) presents the corrected, honestly-evaluated model, with the methodology correction itself made visible and explained directly within the dashboard — not just in the README — so anyone interacting with the live tool understands exactly what number they're looking at and why it's trustworthy.
+
+**Phase 7 status: Complete (updated for corrected model).**
