@@ -10,6 +10,9 @@ from pathlib import Path
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 TEST_DATA_PATH = BASE_DIR / "data" / "processed" / "test_set_v2.csv"
+# Updated: reference training file is now the corrected train_final_v2.csv
+# (from the proper train/validation/test split), not the old train_set_v2.csv
+TRAIN_REF_PATH = BASE_DIR / "data" / "processed" / "train_final_v2.csv"
 
 FEATURE_COLUMNS = joblib.load(
     BASE_DIR / "models" / "feature_columns_final.pkl"
@@ -194,9 +197,9 @@ def preprocessing(test_df):
     cols = ["addr1", "P_emaildomain"]
     threshold_map = {"addr1": 55, "P_emaildomain": 30}
 
-    train_df_ref = pd.read_csv(
-    BASE_DIR / "data" / "processed" / "train_set_v2.csv"
-)
+    # Updated: category thresholds now derived from the corrected training
+    # file (train_final_v2.csv), matching the model actually saved in Phase 5
+    train_df_ref = pd.read_csv(TRAIN_REF_PATH)
     for col in categorical_cols:
         train_df_ref[col] = train_df_ref[col].fillna("Missing")
 
@@ -257,10 +260,12 @@ with st.sidebar:
     )
     st.markdown("### 📊 About This Model")
     st.metric(label="Fraud Rate", value="3.5%")
-    st.metric(label="PR-AUC", value="0.2857", delta="+50% vs baseline")
+    # Updated: this is the final, untouched TEST PR-AUC (not validation) —
+    # the honest number from the corrected train/validation/test methodology
+    st.metric(label="PR-AUC (Test)", value="0.2565")
     st.metric(label="Precision", value="0.30")
-    st.metric(label="Recall", value="0.37")
-    st.metric(label="Features Used", value="214")
+    st.metric(label="Recall", value="0.30")
+    st.metric(label="Features Used", value="212")
     st.metric(label="Test Set Size", value=f"{len(test_df_encoded):,}")
     st.markdown("---")
     st.markdown("### 👨‍💻 Project")
@@ -268,7 +273,9 @@ with st.sidebar:
     st.markdown("**GitHub:** [husnainalix77](https://github.com/husnainalix77)")
     st.markdown("---")
     st.caption(
-        "PR-AUC is preferred for evaluating performance under severe class imbalance."
+        "PR-AUC is preferred for evaluating performance under severe class imbalance. "
+        "This number reflects a single, untouched test-set evaluation — "
+        "see the Project Journey tab for the full validation/test methodology."
     )
 
 # 4. Tabs
@@ -290,7 +297,8 @@ def get_predictions(_model, X):
 with tab1:
     st.markdown('<div class="dashboard-section">Live Model Performance</div>', unsafe_allow_html=True)
     st.caption(
-        "Metrics below update live as you move the Decision Threshold slider in the sidebar."
+        "Metrics below update live as you move the Decision Threshold slider in the sidebar. "
+        "These are computed on the held-out test set."
     )
 
     probas = get_predictions(model, test_df_encoded)
@@ -301,7 +309,8 @@ with tab1:
     live_f1 = f1_score(y_test, predictions, zero_division=0)
 
     col1, col2, col3, col4 = st.columns(4)
-    col1.metric("PR-AUC (fixed)", "0.2857", "+50% vs baseline")
+    # Updated: fixed reference PR-AUC is now the final TEST number, not validation
+    col1.metric("PR-AUC (Test, fixed)", "0.2565")
     col2.metric("Precision", f"{live_precision:.2f}")
     col3.metric("Recall", f"{live_recall:.2f}")
     col4.metric("F1-score", f"{live_f1:.2f}")
@@ -336,25 +345,25 @@ with tab1:
     plt.close()
 
     st.markdown('<div class="dashboard-section">Full Experimentation Log</div>', unsafe_allow_html=True)
-    st.caption("Every approach tested during Phase 5 — including what didn't work.")
+    st.caption("Every approach tested during Phase 5 — including what didn't work. All decisions made on the validation set; test set touched only once for the final number below.")
 
+    # Updated: all PR-AUC values below are VALIDATION-based (development decisions),
+    # since the corrected methodology never used the test set to decide anything
     experiment_data = pd.DataFrame({
         "Approach": [
             "Baseline (default XGBoost)",
             "scale_pos_weight",
             "SMOTE",
             "Hyperparameter tuning",
-            "Engineered time/hour features",
-            "+65 Vesta V-columns"
+            "FINAL (test set, one-time evaluation)"
         ],
-        "PR-AUC": ["N/A (Accuracy 0.9648)", "0.1907", "0.1837", "0.1903", "0.1533–0.1809", "0.2857"],
+        "PR-AUC": ["N/A (accuracy comparison only)", "0.3406 (val)", "0.2900 (val)", "0.3457 (val)", "0.2565 (TEST)"],
         "Decision": [
             "Accuracy proved misleading",
             "Adopted over SMOTE",
-            "Rejected — worse",
-            "Rejected — negligible gain",
-            "Rejected — hurt performance",
-            "Final model"
+            "Rejected — worse on validation",
+            "Rejected — negligible gain (~1.5%), added overfitting risk",
+            "Final, honest, untouched-test-set result"
         ]
     })
     st.dataframe(experiment_data, use_container_width=True, hide_index=True)
@@ -498,10 +507,12 @@ with tab3:
     plt.close()
 
     st.markdown('<div class="dashboard-section">Why Some Features Rank Differently</div>', unsafe_allow_html=True)
+    # Updated: correlation figure corrected from 0.81 to 0.79 (matches corrected
+    # Phase 5 multicollinearity check on the train_final_v2.csv split)
     st.markdown("""
     SHAP and permutation importance sometimes disagree — and it's not a contradiction.
     **`card_avg_amt_so_far`** ranks highly in SHAP but low in permutation importance.
-    This is because it's correlated (0.81) with `TransactionAmt` — when `card_avg_amt_so_far`
+    This is because it's correlated (0.79) with `TransactionAmt` — when `card_avg_amt_so_far`
     is shuffled, the model simply leans on `TransactionAmt` instead, so performance barely drops.
     SHAP still gives it credit because it genuinely contributes to individual predictions —
     permutation importance measures *marginal necessity*, not *standalone value*.
@@ -517,24 +528,29 @@ with tab4:
 
     st.markdown('<div class="dashboard-section">Phase-by-Phase Summary</div>', unsafe_allow_html=True)
 
+    # Updated: Phase 4 and Phase 5 descriptions reflect the corrected
+    # train/validation/test methodology and the honest final numbers
     phases = [
         ("1️⃣ MySQL Ingestion & Verification",
          "Loaded 590,540 transactions into MySQL via a memory-safe, chunked pipeline. "
          "Every load independently verified — row counts, columns, nulls, and values — "
          "not just assumed to have worked."),
         ("2️⃣ SQL Feature Engineering",
-         "Built engineered features (has_identity_data, rolling card behavior, deviation ratios) "
-         "entirely in SQL using CTEs and window functions, all time-respecting to prevent leakage."),
+         "Built engineered features (has_identity_data, rolling card behavior, deviation ratios, "
+         "plus 65 Vesta V-columns) entirely in SQL using CTEs and window functions, "
+         "all time-respecting to prevent leakage."),
         ("3️⃣ Statistical Validation",
          "Every candidate feature tested with chi-square (categorical) or KS-tests (numeric) — "
          "7 out of 7 features confirmed statistically significant, not just visually suggestive."),
-        ("4️⃣ Time-Aware Split",
-         "Split by transaction time, not randomly — trained on the past, tested on the future, "
-         "with zero overlap verified directly from the data."),
+        ("4️⃣ Time-Aware Train/Validation/Test Split",
+         "Split chronologically into three non-overlapping sets: training, validation, and a "
+         "final test set. This 3-way split was a deliberate correction — the original 2-way "
+         "split allowed the test set to be repeatedly consulted during development, which was "
+         "identified and fixed."),
         ("5️⃣ Imbalance-Aware Modeling & Calibration",
-         "Tested 5 approaches head-to-head (scale_pos_weight, SMOTE, tuning, engineered features, "
-         "V-column expansion) — judged by PR-AUC, not misleading accuracy. Final PR-AUC: 0.2857, "
-         "a ~50% improvement over the initial approach."),
+         "Tested scale_pos_weight, SMOTE, and hyperparameter tuning — all decisions made using "
+         "only the validation set. The final model was evaluated exactly once on the untouched "
+         "test set: PR-AUC 0.2565 (vs. 0.3406 on validation), an honest, single-evaluation result."),
         ("6️⃣ Explainability",
          "SHAP and permutation importance applied and cross-checked against each other — "
          "every disagreement between the two methods explained, not just observed."),
@@ -550,8 +566,12 @@ with tab4:
     st.markdown('<div class="dashboard-section">Honest Limitations</div>', unsafe_allow_html=True)
     st.warning("""
     **This model is not production-ready as-is, and that's stated deliberately:**
-    - Recall of 37% means nearly two-thirds of fraud still goes undetected — a real ceiling
-      given the current feature set and single-model approach.
+    - The reported PR-AUC (0.2565) reflects a single, untouched test-set evaluation, following
+      a corrected train/validation/test methodology after an earlier version of this project
+      repeatedly evaluated development decisions against the test set — a genuine flaw that
+      was identified and fixed.
+    - Recall of ~30% on the test set means the majority of fraud still goes undetected — a real
+      ceiling given the current feature set and single-model approach.
     - The decision threshold reflects a default assumption (missed fraud costs more than a
       false alarm), not an actual calculated business cost ratio.
     - Matching industry-standard performance (70–90%+ recall with manageable false alarms)
@@ -564,4 +584,4 @@ with tab4:
     - 📂 [Full GitHub Repository](https://github.com/husnainalix77/transaction-fraud-risk-engine)
     - 📓 [Jupyter Notebooks (all 7 phases)](https://github.com/husnainalix77/transaction-fraud-risk-engine/tree/main/notebooks)
     - 📄 [Detailed Phase Logs](https://github.com/husnainalix77/transaction-fraud-risk-engine/tree/main/docs)
-    """)      
+    """)
